@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 import fairvalue
+import indicators
 from fills import bid_levels, walk_bids
 from settings import fee, order_count
 
@@ -142,6 +143,21 @@ def decide_entry(asset, m, x):
         if against:
             return Skip('direction_disagree', f'{x.label} {asset} entry skipped: {side.upper()} disagrees with {", ".join(against)}.',
                         key=('direction', t, side), blocked='Direction filter: ' + ', '.join(against) + ' disagree', inputs=inputs)
+    if c['bb_filter']:
+        # Bollinger Bands on 1-minute closes of the settlement index (Coinbase if the index is down), data at
+        # or before now only. A YES entry bets the price stays up; skip it while the price is breaking down
+        # through the lower band (%B at or below the threshold), and the mirror case for NO.
+        bb = indicators.bollinger_now(x.spot(asset), now, int(c['bb_period']), c['bb_k'])
+        inputs['bollinger'] = bb
+        if bb is None:
+            return Skip('bb_unavailable', f'{x.label} {asset} entry skipped: Bollinger filter needs {int(c["bb_period"])} consecutive minutes of fresh prices.',
+                        key=('bb_unavailable', t), blocked='Bollinger: not enough price history', inputs=inputs)
+        against = bb['pctb'] <= c['bb_pctb'] + 1e-9 if side == 'yes' else bb['pctb'] >= 1 - c['bb_pctb'] - 1e-9
+        if against:
+            band = 'lower' if side == 'yes' else 'upper'
+            return Skip('bb_against', f'{x.label} {asset} entry skipped: price is at/through the {band} 1-min Bollinger band (%B {bb["pctb"]:.2f}), '
+                        f'moving against {side.upper()}.', key=('bb_against', t, side),
+                        blocked=f'Bollinger: %B {bb["pctb"]:.2f}, {band} band break against {side.upper()}', inputs=inputs)
     need = round(price*count + fee(price, count), 6)
     if c['daily_loss'] > 0 and x.pnl - x.at_risk - need < -c['daily_loss'] - 1e-9:
         # Each binary position can lose its whole cost; never let the worst case break the daily loss limit.

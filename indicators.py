@@ -62,9 +62,65 @@ def atr(candles, n=14):
     return out
 
 
+def bollinger(closes, n=20, k=2.0):
+    """Bollinger Bands: (middle, upper, lower), SMA(n) ± k × the population standard deviation of
+    the same n closes (Bollinger's definition). Aligned with ``closes``; None before the warm-up."""
+    mid, up, lo = [None] * len(closes), [None] * len(closes), [None] * len(closes)
+    for i in range(n - 1, len(closes)):
+        w = closes[i - n + 1:i + 1]
+        m = sum(w) / n
+        sd = (sum((x - m) ** 2 for x in w) / n) ** .5
+        mid[i], up[i], lo[i] = m, m + k * sd, m - k * sd
+    return mid, up, lo
+
+
+def percent_b(price, upper, lower):
+    """%B: 0 at the lower band, 1 at the upper band, below 0 / above 1 outside. 0.5 if the bands are flat."""
+    width = upper - lower
+    return .5 if width <= 0 else (price - lower) / width
+
+
+MAX_TICK_AGE = 5     # seconds: the latest price must be this fresh (same rule as the fair-value model)
+
+
+def minute_closes(ticks, now):
+    """1-minute closes from 1-second ticks [(unix second, price)], oldest first: the last price of
+    every complete minute, then the current price as the close of the forming minute (as live
+    charts do). Uses only ticks at or before ``now``. Returns the longest run of consecutive
+    minutes ending now; a minute with no tick breaks the run, so a feed gap is never bridged."""
+    pts = [(t, p) for t, p in ticks if t <= now and p > 0]
+    if not pts or now - pts[-1][0] > MAX_TICK_AGE:
+        return []
+    last = {}
+    for t, p in pts:
+        last[int(t // 60)] = p
+    cur = int(now // 60)
+    if cur not in last:                      # no tick yet in this minute: the latest price is its close so far
+        last[cur] = pts[-1][1]
+    out, m = [], cur
+    while m in last:
+        out.append(last[m]); m -= 1
+    return out[::-1]
+
+
+def bollinger_now(ticks, now, n=20, k=2.0):
+    """Current Bollinger state on 1-minute closes of ``ticks``, or None without n consecutive minutes
+    of fresh data: dict(price, mid, upper, lower, pctb, width)."""
+    closes = minute_closes(ticks, now)
+    if len(closes) < n:
+        return None
+    mid, up, lo = (s[-1] for s in bollinger(closes[-n:], n, k))
+    price = closes[-1]
+    return dict(price=price, mid=round(mid, 8), upper=round(up, 8), lower=round(lo, 8),
+                pctb=round(percent_b(price, up, lo), 4), width=round(up - lo, 8))
+
+
 def summarize(candles, keep=60):
     """Indicators computed over all candles; the last ``keep`` points are returned."""
     closes = [c['c'] for c in candles]
     fast, slow, strength, rng = ema(closes, 9), ema(closes, 21), rsi(closes, 14), atr(candles, 14)
+    bb_mid, bb_up, bb_lo = bollinger(closes, 20, 2.0)
     tail = slice(-keep, None)
-    return dict(ema9=fast[tail], ema21=slow[tail], rsi14=strength[tail], atr14=rng[-1] if rng else None)
+    pctb = percent_b(closes[-1], bb_up[-1], bb_lo[-1]) if closes and bb_up[-1] is not None else None
+    return dict(ema9=fast[tail], ema21=slow[tail], rsi14=strength[tail], atr14=rng[-1] if rng else None,
+                bb_mid=bb_mid[tail], bb_up=bb_up[tail], bb_lo=bb_lo[tail], bb_pctb=pctb)

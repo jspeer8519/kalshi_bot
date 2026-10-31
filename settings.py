@@ -16,12 +16,13 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 dual_shadow=False,             # also run the SHADOW ledger alongside PAPER or LIVE_SMALL
                 max_same_side=1,               # max entries on one side (YES/NO) per 15-minute session; 0 = no cap
                 direction_filter=False,        # skip entries the other markets' favorites disagree with
+                bb_filter=False, bb_period=20, bb_k=2.0, bb_pctb=0.0,   # Bollinger (1-min) filter: skip entries against a band break
                 fair_value=False, edge_margin=.02, fv_exit_margin=0, vol_lookback_s=900,
                 settlement_tracking=False,     # record how early-exited markets actually settled
                 kill_switch=False, kill_switch_pct=.20,
                 audit_full=False,              # also log every decision with its inputs
                 fill_comparison=False)         # simulate paper and shadow fills next to every real decision
-FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','fair_value','settlement_tracking',
+FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','fair_value','settlement_tracking',
          'kill_switch','audit_full','fill_comparison')
 NON_NUMERIC = ('assets', 'size_mode') + FLAGS
 
@@ -79,4 +80,7 @@ def validate(c):
     if not 0 <= c['edge_margin'] <= .5 or not 0 <= c['fv_exit_margin'] <= .5: raise ValueError('Fair-value margins must be $0–$0.50')
     if not 60 <= c['vol_lookback_s'] <= 1200: raise ValueError('Volatility lookback must be 60–1200 seconds')
     if not .01 <= c['kill_switch_pct'] <= .99: raise ValueError('Kill-switch drawdown must be 1%–99%')
+    if not 5 <= c['bb_period'] <= 20 or int(c['bb_period']) != c['bb_period']: raise ValueError('Bollinger period must be a whole number of minutes from 5 to 20')
+    if not 1 <= c['bb_k'] <= 4: raise ValueError('Bollinger width must be 1–4 standard deviations')
+    if not 0 <= c['bb_pctb'] <= .5: raise ValueError('Bollinger %B threshold must be 0–0.5')
     return c
