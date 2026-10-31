@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kalshi Desk
+Comment=Local Kalshi paper trading workspace
+Exec=/home/kali/kalshi/launch.sh
+Path=/home/kali/kalshi
+Icon=utilities-system-monitor
+Terminal=true
+Categories=Finance;
