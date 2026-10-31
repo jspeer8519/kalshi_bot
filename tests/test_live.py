@@ -330,11 +330,15 @@ class CodexReviewTests(unittest.TestCase):
     def test_stale_exit_is_not_sent(self):
         import executors
         from unittest.mock import patch
+        self.x.open_result = dict(size=1, price=.85, fee=.01, order_id='o1', client_order_id='c1')
         self.e.set_mode('live'); self.e.control('start'); self.e.tick(self.market(), self.now)
+        self.assertIn('BTC', self.e.s['positions'])     # precondition: a live position to exit
         with patch.object(executors.time, 'time', side_effect=[0.0] + [15.0] * 40):
             self.e.tick(self.market(yes_bid=.96, fetched=self.now+1), self.now+1)
         self.assertFalse([c for c in self.x.calls if c[0] == 'close']); self.assertIn('BTC', self.e.s['positions'])
         self.assertIsNone(self.on_disk()['live_inflight'])
+        logged = [json.loads(line) for line in Path(self.logp).read_text().splitlines()]
+        self.assertTrue(any(d.get('event') == 'order_not_sent' and d.get('intent') == 'exit' for d in logged))
 
     def test_live_entries_resume_once_the_log_works_again(self):
         good = self.e.log.path
