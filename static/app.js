@@ -94,7 +94,8 @@ function clearKalshi(card){const q=s=>card.querySelector(s);for(const c of ['.mc
 function kalshiGeom(a){const m=state.markets[a],ix=idx[a],now=Date.now()/1000,range=ranges[a]||'live',whole=range==='15m',close=m&&m.close?m.close:Math.ceil(now/900)*900,open=close-900,
  t1=whole?close:now,t0=whole?open:now-(range==='live'?30:300),span=t1-t0,strike=m&&m.strike!=null?m.strike:null,candles=!!candleMode[a],
  series=(candles?ix.points:ix.avg).filter(([t])=>t>=t0-1&&t<=t1+1),vals=series.map(p=>p[1]);
- if(strike!=null)vals.push(strike);   // the target line is always on the chartif(!vals.length)return null;
+ if(strike!=null&&(whole||!vals.length))vals.push(strike);   // 15M always shows the target; LIVE/5M zoom to the price (target pinned at the edge when off-screen)
+ if(!vals.length)return null;
  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.12||Math.abs(hi)*.0001;lo-=pad;hi+=pad;
  return {m,ix,now,range,whole,close,open,t0,t1,span,strike,candles,series,lo,hi,x:t=>(t-t0)/span*700,y:v=>186-(v-lo)/(hi-lo)*182}}
 function drawKalshi(a){const card=cardOf(a);if(!card||!state)return;const q=s=>card.querySelector(s),empty=q('.mc-empty');card.classList.add('kalshi');
@@ -140,7 +141,8 @@ function basisFor(a){const m=state&&state.markets[a];if(!m||m.strike==null||!m.c
 function liveGeom(a){const m=state&&state.markets[a],now=Date.now()/1000,range=ranges[a]||'live',whole=range==='15m',close=m&&m.close?m.close:Math.ceil(now/900)*900,open=close-900,t1=whole?close:now,t0=whole?open-60:now-(range==='live'?30:300),span=t1-t0,strike=m&&m.strike!=null?m.strike:null;
  const useIdx=idxLive(a),tk=(useIdx?idx[a].points:(ticks[a]||[])).filter(([t])=>t>=t0&&t<=t1),first=tk.length?tk[0][0]:Infinity;
  const back=useIdx||!whole?[]:((prices[a]&&prices[a].candles)||[]).map(c=>[c.t+60,c.c]).filter(([t])=>t>=t0&&t<first);if(back.length&&tk.length)back.push(tk[0]);
- const vals=[...tk,...back].map(p=>p[1]);if(strike!=null&&(whole||!vals.length))vals.push(strike);   // LIVE/5M zoom to the price, like Kalshiif(!vals.length)return null;
+ const vals=[...tk,...back].map(p=>p[1]);if(strike!=null&&(whole||!vals.length))vals.push(strike);   // LIVE/5M zoom to the price, like Kalshi
+ if(!vals.length)return null;
  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.1||hi*.0005;lo-=pad;hi+=pad;
  return {m,t0,t1,open,close,whole,range,span,strike,tk,back,lo,hi,idx:useIdx,b:useIdx?null:basisFor(a),x:t=>(t-t0)/span*700,y:v=>186-(v-lo)/(hi-lo)*182}}
 function drawLive(a){const card=cardOf(a);if(!card||!state)return;const q=s=>card.querySelector(s),empty=q('.mc-empty');
