@@ -358,7 +358,7 @@ class Engine(Safeguards, SimQueue):
         ex = self.executors[mode]
         order = dict(intent='entry', side=d.side, price=d.price, count=ex.effective_count(d.count),
                      decision=uuid.uuid4().hex[:12], ticker=m['ticker'], close=m['close'])
-        self._audit('decision_entry', asset, m, d, order)
+        self._audit('decision_entry', asset, m, d, order, ex.mode)
         status, fill = ex.enter(self, asset, m, order, now)
         if status == SKIPPED: return
         seen = self.seen_list(ex.mode)

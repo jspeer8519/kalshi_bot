@@ -113,3 +113,11 @@ class LatencyTimingTests(EngineCase):
         self.e.tick(market(yes_ask=.5, fetched=NOW + 2), NOW + 2)
         self.e.tick(market(yes_ask=.6, fetched=NOW + 1), NOW + 2)
         self.assertEqual(self.e.markets['BTC']['yes_ask'], .5)
+
+
+class DecisionAuditModeTests(EngineCase):
+    def test_entry_decisions_are_logged_under_their_own_ledger(self):
+        self.cfg(dual_shadow=True, audit_full=True)
+        self.e.control('start'); self.e.tick(market('BTC'), NOW)
+        modes = sorted(ev['mode'] for ev in self.events() if ev['event'] == 'decision_entry')
+        self.assertEqual(modes, ['paper', 'shadow'])
