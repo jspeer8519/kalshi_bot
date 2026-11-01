@@ -17,6 +17,7 @@ Every fixed defect has a regression test that fails on the code before the fix.
 | D10 | P3 | Price chart forced the target into the LIVE/5M scale: flat line | Owner | Fixed | `8896d98` | `test_chart_scale` |
 | D11 | P3 | `if(!vals.length)return null;` commented out by a missing line break (two chart functions) | Internal | Fixed | `8896d98` | `test_chart_scale` |
 | D12 | P3 | Dashboard collapsed to one column under 1100 px; ~6,000 px of scrolling | Owner | Fixed | `c3cadb4` | rendered check |
+| D13 | P3 | Audit 'chart vs official settlement' matched only the exact close second (or one before); index messages stamped a second late gave '0 coins compared' | Owner's audits | Fixed: nearest value within 2 s, offset reported, history span shown when nothing matches | this commit | `test_auditcheck.ChartPointTests` |
 
 ## Strategy defects (configuration, not code)
 | ID | Finding | Evidence | Action taken |

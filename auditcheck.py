@@ -59,6 +59,16 @@ class Audit:
         return '\n'.join(lines) + '\n'
 
 
+def chart_point(avg, close):
+    """The chart's 60-second average at a market's close: {unix second: value} -> (value, offset in s).
+    Index messages are stamped with their own time rounded to the second, so the close can land a second
+    either side; the exact second is preferred, then the nearest one up to 2 s away."""
+    for off in (0, -1, 1, -2, 2):
+        if close + off in avg:
+            return avg[close + off], off
+    return None, None
+
+
 def run(network=True):
     A = Audit()
     s = pnlreport.load_state(ROOT / 'data' / 'paper.sqlite3')
@@ -118,14 +128,16 @@ def run(network=True):
 
     def chart_accuracy():
         ix = get(APP + '/api/index?after=0', 20)
-        out, worst = [], 0.0
+        out, worst, offsets, spans = [], 0.0, [], []
         for a, v in sorted(ix['index'].items()):
             avg = {int(t): val for t, val in v['avg']}
+            if avg: spans.append((min(avg), max(avg)))
             for m in get(f'{KALSHI}/markets?series_ticker=KX{a}15M&status=settled&limit=3')['markets']:
                 close = int(timestamp(m['close_time']))
-                ours = avg.get(close, avg.get(close - 1))
+                ours, off = chart_point(avg, close)
                 if ours is None or not m.get('expiration_value'):
                     continue
+                offsets.append(off)
                 official = float(m['expiration_value'])
                 tol = 10 ** -(len(m['expiration_value'].split('.')[-1]) if '.' in m['expiration_value'] else 0)   # Kalshi rounds its figure
                 rel = abs(ours - official) / official
@@ -133,8 +145,13 @@ def run(network=True):
                 out.append((a, abs(ours - official) <= tol * .51 + 1e-9))
                 break
         wrong = [a for a, ok in out if not ok]
-        A.add('PASS' if out and not wrong else 'WARN' if not out else 'FAIL', 'Chart line vs official settlement',
-              f'{len(out)} coins compared at their last close' + (f'; differ: {wrong}' if wrong else ', all equal to Kalshi\'s rounded value'))
+        if not out:
+            have = (f'the app holds {(max(e for _, e in spans) - min(b for b, _ in spans)) / 60:.0f} min of chart history' if spans else 'the app holds no chart history yet')
+            A.add('WARN', 'Chart line vs official settlement', f'0 coins compared: no chart value within 2 s of the last 3 settled closes ({have}; normal for ~20 min after a restart)')
+            return
+        shift = '' if all(o == 0 for o in offsets) else f' (matched at {sorted(set(offsets))} s from close)'
+        A.add('FAIL' if wrong else 'PASS', 'Chart line vs official settlement',
+              f'{len(out)} coins compared at their last close' + (f'; differ: {wrong}' if wrong else ', all equal to Kalshi\'s rounded value') + shift)
     if network:
         A.check('Chart accuracy', chart_accuracy)
 

@@ -50,3 +50,11 @@ class AuditTests(unittest.TestCase):
         a = auditcheck.Audit(); a.add('PASS', 'x', 'ok'); a.add('WARN', 'y', 'hmm')
         self.assertIn('**1 passed · 1 warnings · 0 failed**', a.markdown()); self.assertFalse(a.failed)
         a.add('FAIL', 'z', 'bad'); self.assertTrue(a.failed)
+
+
+class ChartPointTests(unittest.TestCase):
+    def test_prefers_the_exact_second_then_the_nearest(self):
+        self.assertEqual(auditcheck.chart_point({100: 1.0, 101: 2.0}, 100), (1.0, 0))
+        self.assertEqual(auditcheck.chart_point({101: 2.0, 98: 3.0}, 100), (2.0, 1))      # stamped a second late
+        self.assertEqual(auditcheck.chart_point({102: 4.0}, 100), (4.0, 2))
+        self.assertEqual(auditcheck.chart_point({103: 5.0, 96: 6.0}, 100), (None, None))
