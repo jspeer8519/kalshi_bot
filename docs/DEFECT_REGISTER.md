@@ -18,6 +18,7 @@ Every fixed defect has a regression test that fails on the code before the fix.
 | D11 | P3 | `if(!vals.length)return null;` commented out by a missing line break (two chart functions) | Internal | Fixed | `8896d98` | `test_chart_scale` |
 | D12 | P3 | Dashboard collapsed to one column under 1100 px; ~6,000 px of scrolling | Owner | Fixed | `c3cadb4` | rendered check |
 | D13 | P3 | Audit 'chart vs official settlement' matched only the exact close second (or one before); index messages stamped a second late gave '0 coins compared' | Owner's audits | Fixed: nearest value within 2 s, offset reported, history span shown when nothing matches | this commit | `test_auditcheck.ChartPointTests` |
+| D14 | P3 | In LIVE/5M the target is pinned off-screen, but the label did not show the distance, so the axis range and the red 'vs target' figure looked inconsistent | Owner | Fixed: off-screen label reads 'TARGET $X · $Y above/below' | this commit | rendered check (all 7 coins match the headline gap) |
 
 ## Strategy defects (configuration, not code)
 | ID | Finding | Evidence | Action taken |

@@ -121,7 +121,7 @@ function drawKalshi(a){const card=cardOf(a);if(!card||!state)return;const q=s=>c
  // target: red dashed line labelled TARGET, or pinned to the edge with an arrow when off-screen
  const sl=q('.mc-strike'),tl=q('.mc-target');if(strike!=null){sl.setAttribute('stroke','#f05d5d');const inside=strike>=lo&&strike<=hi;
   if(inside){sl.setAttribute('y1',y(strike));sl.setAttribute('y2',y(strike));sl.setAttribute('visibility','visible')}else sl.setAttribute('visibility','hidden');
-  tl.textContent=inside?'TARGET':(strike>hi?'▲ TARGET ':'▼ TARGET ')+fmtIdx(strike);tl.style.top=inside?(y(strike)/190*100)+'%':(strike>hi?'0%':'100%');tl.classList.toggle('pinned',!inside);tl.classList.remove('hidden')}else{sl.setAttribute('visibility','hidden');tl.classList.add('hidden')}
+  const lastV=K.series.length?K.series.at(-1)[1]:null,gap=lastV==null?'':' · $'+Math.abs(strike-lastV).toLocaleString('en-US',{minimumFractionDigits:idxDp(strike),maximumFractionDigits:idxDp(strike)})+(strike>lastV?' above':' below');tl.textContent=inside?'TARGET':(strike>hi?'▲ TARGET ':'▼ TARGET ')+fmtIdx(strike)+gap;tl.style.top=inside?(y(strike)/190*100)+'%':(strike>hi?'0%':'100%');tl.classList.toggle('pinned',!inside);tl.classList.remove('hidden')}else{sl.setAttribute('visibility','hidden');tl.classList.add('hidden')}
  // NOW: Kalshi's latest 60-second average, its distance from the target, and the current point
  const nowV=K.ix.avg.at(-1)[1],last=K.series.at(-1),dot=q('.mc-dot'),pl=q('.mc-pct');
  if(last){dot.style.left=(x(last[0])/700*plot.width)+'px';dot.style.top=(y(last[1])/190*plot.height)+'px';dot.style.background=color;dot.classList.remove('hidden')}else dot.classList.add('hidden');
