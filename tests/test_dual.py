@@ -73,7 +73,7 @@ class DualLedgerTests(EngineCase):
     def test_shadow_alongside_live_small(self):
         from helpers import FakeExecutor
         x = FakeExecutor()
-        e = Engine(self.path + 'L', executor=x); self.addCleanup(e.db.close)
+        e = Engine(self.path + 'L', live_enabled=True, executor=x); self.addCleanup(e.db.close)
         e.s['config'].update(dual_shadow=True, contracts=5); e.set_mode('live'); e.control('start')
         e.tick(market(), NOW)
         self.assertEqual((e.s['positions']['BTC']['size'], e.s['shadow_positions']['BTC']['size']), (1, 5))

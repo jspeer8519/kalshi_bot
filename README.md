@@ -38,6 +38,7 @@ The **Paper | Shadow | Live · 1 contract** switch sits on the Overview page nex
 **One decision path.** `strategy.py` makes every entry and exit decision with the same inputs in every mode. `executors.py` is the only part that differs. `tests/test_modes.py` proves it: it runs one scenario through all three modes and asserts identical decisions and identical orders handed to the executors. It also checks that `Engine.tick` contains no mode-specific branch.
 
 Switching to LIVE_SMALL requires all of the following:
+0. `LIVE_TRADING_ENABLED=true` in `.env` (default off; see `.env.example`). Without it the dashboard refuses LIVE_SMALL and lists this as the first missing step.
 1. Credentials saved on **Connection** (or `KALSHI_KEY_ID` / `KALSHI_PRIVATE_KEY` in `.env`).
 2. A successful **Test account connection** within the last 15 minutes.
 3. Entries paused and no open position.

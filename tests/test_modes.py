@@ -31,7 +31,7 @@ def normalize(d):
 
 class SharedDecisionPathTests(EngineCase):
     def run_mode(self, mode):
-        e = Engine(self.path + mode, executor=FakeExecutor())
+        e = Engine(self.path + mode, live_enabled=True, executor=FakeExecutor())
         decisions, orders = [], []
         real_entry, real_exit = strategy.decide_entry, strategy.decide_exit
 

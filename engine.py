@@ -36,7 +36,7 @@ def label(mode):
 
 
 class Engine(Safeguards, SimQueue, FinalMinute):
-    def __init__(self, path, executor=None, log_path=None, live_max_contracts=1, spot_fn=None, index_fn=None):
+    def __init__(self, path, executor=None, log_path=None, live_max_contracts=1, spot_fn=None, index_fn=None, live_enabled=False):
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.execute('CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY, body TEXT NOT NULL)')
@@ -51,6 +51,7 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         self.log = TradeLog(log_path)
         self.fm_path = fm_path_for(path)              # final-minute monitor file (record only)
         self.live_max_contracts = live_max_contracts
+        self.live_enabled = bool(live_enabled)   # hard gate: LIVE_SMALL can only be selected when the operator enabled it (.env)
         self.mode = 'paper'                        # never persisted as live: restart is always paper
         self.running = False
         self.markets = {}                          # asset -> latest market snapshot
@@ -212,6 +213,8 @@ class Engine(Safeguards, SimQueue, FinalMinute):
             if mode == self.mode: return
             if self.running: raise ValueError('Pause entries before switching modes')
             if mode == 'live':
+                if not self.live_enabled:
+                    raise ValueError('Live trading is disabled. To allow LIVE_SMALL, set LIVE_TRADING_ENABLED=true in .env and restart the app.')
                 if 'live' not in self.executors: raise ValueError('Live execution is not available')
                 if self.s['positions']: raise ValueError('Close or settle all open positions before switching to LIVE_SMALL')
                 if self.s['live_halt']: raise ValueError('Live trading is halted. Clear the halt first.')

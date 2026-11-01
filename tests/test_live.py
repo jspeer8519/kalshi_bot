@@ -41,7 +41,7 @@ class EngineLiveTests(unittest.TestCase):
         self.db = str(Path(self.temp.name) / 'paper.db')
         self.logp = str(Path(self.temp.name) / 'trade_log.jsonl')
         self.x = FakeExecutor()
-        self.e = Engine(self.db, executor=self.x, log_path=self.logp)
+        self.e = Engine(self.db, live_enabled=True, executor=self.x, log_path=self.logp)
         self.now = 1800000000
 
     def tearDown(self):
@@ -60,7 +60,7 @@ class EngineLiveTests(unittest.TestCase):
 
     def test_restart_always_paper(self):
         self.e.set_mode('live')
-        other = Engine(self.db, executor=self.x); self.assertEqual(other.mode, 'paper'); other.db.close()
+        other = Engine(self.db, live_enabled=True, executor=self.x); self.assertEqual(other.mode, 'paper'); other.db.close()
 
     def test_mode_switch_rules(self):
         self.e.control('start')
@@ -103,13 +103,13 @@ class EngineLiveTests(unittest.TestCase):
         self.assertEqual(self.e.s['live_halt'], 'timeout'); self.assertIn('TEST-1', self.e.s['seen'])
         with self.assertRaises(ValueError): self.e.control('start')
         self.e.control('clear_halt'); self.assertIsNone(self.e.s['live_halt'])
-        other = Engine(self.db, executor=self.x)   # halt cleared state persists too
+        other = Engine(self.db, live_enabled=True, executor=self.x)   # halt cleared state persists too
         self.assertIsNone(other.s['live_halt']); other.db.close()
 
     def test_halt_survives_restart(self):
         self.x.open_error = LiveAmbiguous('timeout')
         self.go_live(); self.e.tick(self.market(), self.now)
-        other = Engine(self.db, executor=self.x); self.assertEqual(other.s['live_halt'], 'timeout'); other.db.close()
+        other = Engine(self.db, live_enabled=True, executor=self.x); self.assertEqual(other.s['live_halt'], 'timeout'); other.db.close()
 
     def test_rejected_entry_skips_market_without_halt(self):
         self.x.open_error = OrderRejected('HTTP 400 insufficient_balance')
@@ -158,7 +158,7 @@ class EngineLiveTests(unittest.TestCase):
     def test_restored_live_position_still_managed_in_paper_mode(self):
         self.x.open_result = dict(size=1, price=.85, fee=.01, order_id='ord-1', client_order_id='c1')
         self.go_live(); self.e.tick(self.market(), self.now)
-        other = Engine(self.db, executor=self.x)
+        other = Engine(self.db, live_enabled=True, executor=self.x)
         self.assertEqual(other.mode, 'paper')
         other.s['live_halt'] = None
         self.x.close_result = dict(size=1, price=.96, fee=.01, order_id='ord-2', client_order_id='c2')
@@ -248,7 +248,7 @@ class LiveFillPersistenceTests(unittest.TestCase):
             self.on_disk.append({a: p['size'] for a, p in body['positions'].items()})
             return self.x.cash
         self.x.balance = balance
-        self.e = Engine(self.db, executor=self.x)
+        self.e = Engine(self.db, live_enabled=True, executor=self.x)
 
     def tearDown(self):
         self.e.db.close(); self.temp.cleanup()
@@ -271,7 +271,7 @@ class CodexReviewTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.db = str(Path(self.temp.name) / 'p.db'); self.now = 1800000000
         self.logp = str(Path(self.temp.name) / 'log.jsonl')
-        self.x = FakeExecutor(); self.e = Engine(self.db, executor=self.x, log_path=self.logp)
+        self.x = FakeExecutor(); self.e = Engine(self.db, live_enabled=True, executor=self.x, log_path=self.logp)
 
     def tearDown(self):
         self.e.db.close(); self.temp.cleanup()
@@ -296,7 +296,7 @@ class CodexReviewTests(unittest.TestCase):
 
     def test_restart_with_an_unresolved_order_halts_live_trading(self):
         self.e.s['live_inflight'] = dict(asset='BTC', ticker='TEST-1', side='yes', intent='entry', decision='d', at=1.0); self.e.save()
-        other = Engine(self.db, executor=self.x)
+        other = Engine(self.db, live_enabled=True, executor=self.x)
         self.assertIn('unresolved', other.s['live_halt']); self.assertIsNone(other.s['live_inflight'])
         with self.assertRaises(ValueError): other.set_mode('live')
         other.db.close()

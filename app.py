@@ -102,8 +102,13 @@ def live_max_contracts():
     return max(1,min(value,100))
 
 
+def live_trading_enabled():
+    """LIVE_SMALL is allowed only when the operator sets LIVE_TRADING_ENABLED=true (.env). Default: off."""
+    return os.environ.get('LIVE_TRADING_ENABLED','false').strip().lower()=='true'
+
+
 client=KalshiClient(load_credentials,base=API)
-engine=Engine(str(DATA/'paper.sqlite3'),executor=LiveExecutor(client),log_path=str(LOG_PATH),live_max_contracts=live_max_contracts(),
+engine=Engine(str(DATA/'paper.sqlite3'),executor=LiveExecutor(client),log_path=str(LOG_PATH),live_max_contracts=live_max_contracts(),live_enabled=live_trading_enabled(),
             spot_fn=lambda asset:index_feed.series(asset) or tick_feed.series(asset),   # settlement index, else Coinbase (both defined below)
             index_fn=lambda asset:index_feed.series(asset))   # settlement index only: rules that compare the price with the target
 
@@ -292,6 +297,7 @@ def home():return (ROOT/'static/index.html').read_text().replace('__TOKEN__',TOK
 def state():
     s=engine.snapshot();s['credentials_configured']=credentials_configured()
     s['connection_verified']=time.time()-verified_at<VERIFY_TTL
+    s['live_trading_enabled']=engine.live_enabled
     return jsonify(s)
 
 @app.get('/api/price')

@@ -4,6 +4,7 @@ Local Flask dashboard (127.0.0.1:8765) and bot that trades Kalshi 15-minute cryp
 
 ## Safety rules (always)
 - Never place, cancel or modify live orders, switch to LIVE_SMALL, or call the app's POST endpoints unless the user explicitly asks in this conversation.
+- LIVE_SMALL is impossible unless `.env` has `LIVE_TRADING_ENABLED=true` (`Engine(live_enabled=...)`, default off). Never set it or suggest bypassing it; tests that need live pass `live_enabled=True` explicitly.
 - Never open, print or quote `.env`, `kalshi_private_key.pem` or anything in `.private/`. Credential loading in `app.py` (`load_credentials` and friends) and `live.py` must not change without explicit approval.
 - Don't restart the running app (`python app.py`) without asking; it may hold open positions. Test with a copy on another port and a temporary `KALSHI_DATA_DIR`.
 - The state DB (`data/paper.sqlite3`) and audit log (`data/trade_log.jsonl`) are the source of truth: read them read-only (`sqlite3 'file:...?mode=ro'`), never edit them.
@@ -27,4 +28,6 @@ Local Flask dashboard (127.0.0.1:8765) and bot that trades Kalshi 15-minute cryp
 - JS syntax: `node --check static/app.js`
 - Audit (read-only): `.venv/bin/python auditcheck.py [--no-network] --out output/reports/audit-$(date +%F).md`
 - P&L (read-only): `.venv/bin/python pnlreport.py --mode shadow|paper|live --period all|24h|7d|mtd`
+- Research (read-only): `sessionreport.py --since YYYY-MM-DD`, `gridreport.py`, `model_eval.py --mode shadow` (edge with confidence intervals, calibration, walk-forward model), `reversalreport.py`, `finalminutereport.py`
+- Docs: `docs/` (audit, architecture, defect and risk registers, baseline, strategy research, readiness). Update `DEFECT_REGISTER.md` when fixing a defect.
 - Start the app (user's terminal): `./launch.sh`

@@ -67,7 +67,7 @@ class ComparisonReportTests(EngineCase):
 
     def test_live_small_records_live_fill_and_simulated_fills_for_one_contract(self):
         x = FakeExecutor(); x.open_result = dict(size=1, price=.86, fee=.01, order_id='o1', client_order_id='c')
-        e = self.e.__class__(self.path + 'L', executor=x, log_path=self.logp); self.addCleanup(e.db.close)
+        e = self.e.__class__(self.path + 'L', executor=x, log_path=self.logp, live_enabled=True); self.addCleanup(e.db.close)
         e.s['config'].update(fill_comparison=True, contracts=5); e.set_mode('live'); e.control('start')
         e.tick(market(), NOW)
         e.tick(market(status='finalized', result='yes', fetched=CLOSE+5), CLOSE+5)

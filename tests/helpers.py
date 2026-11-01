@@ -49,7 +49,7 @@ class EngineCase(unittest.TestCase):
         self.now = NOW
 
     def make(self, **kw):
-        return Engine(self.path, executor=self.executor, log_path=self.logp, spot_fn=lambda a: self.spot.get(a, []), **kw)
+        return Engine(self.path, live_enabled=True, executor=self.executor, log_path=self.logp, spot_fn=lambda a: self.spot.get(a, []), **kw)
 
     def tearDown(self):
         self.e.db.close(); self.temp.cleanup()
