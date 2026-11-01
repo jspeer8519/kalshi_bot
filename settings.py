@@ -19,12 +19,13 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 bb_filter=False, bb_period=20, bb_k=2.0, bb_pctb=0.0,   # Bollinger (1-min) filter: skip entries against a band break
                 reversal_exit=False, reversal_watch=False,  # exit (or only record) when the coin crosses back through its target
                 reversal_pct=0.02, reversal_seconds=5, reversal_min_bid=0.30,
+                final_minute_log=False,        # record the last 60 s of every market (finalminutereport.py); never trades
                 fair_value=False, edge_margin=.02, fv_exit_margin=0, vol_lookback_s=900,
                 settlement_tracking=False,     # record how early-exited markets actually settled
                 kill_switch=False, kill_switch_pct=.20,
                 audit_full=False,              # also log every decision with its inputs
                 fill_comparison=False)         # simulate paper and shadow fills next to every real decision
-FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','reversal_exit','reversal_watch','fair_value','settlement_tracking',
+FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','reversal_exit','reversal_watch','final_minute_log','fair_value','settlement_tracking',
          'kill_switch','audit_full','fill_comparison')
 NON_NUMERIC = ('assets', 'size_mode') + FLAGS
 

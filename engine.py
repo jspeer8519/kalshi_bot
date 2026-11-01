@@ -20,6 +20,7 @@ from audit import TradeLog
 from safeguards import Safeguards
 from simqueue import SimQueue
 from executors import PENDING, SKIPPED, LiveSmallExecutor, SimExecutor
+from finalminute import FinalMinute, fm_path_for
 from fills import bid_levels, walk_bids  # noqa: F401  (re-exported)
 from settings import (ALL_ASSETS, DEFAULT_ASSETS, DEFAULTS, FLAGS, NON_NUMERIC, SERIES, asset_of, fee,  # noqa: F401
                       max_order_count, order_count, timestamp, validate)
@@ -34,7 +35,7 @@ def label(mode):
     return LABELS.get(mode, str(mode).upper())
 
 
-class Engine(Safeguards, SimQueue):
+class Engine(Safeguards, SimQueue, FinalMinute):
     def __init__(self, path, executor=None, log_path=None, live_max_contracts=1, spot_fn=None):
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path, check_same_thread=False)
@@ -47,6 +48,7 @@ class Engine(Safeguards, SimQueue):
         self.executors = dict(self.sims, **({'live': LiveSmallExecutor(executor)} if executor is not None else {}))
         self.spot_fn = spot_fn or (lambda asset: [])
         self.log = TradeLog(log_path)
+        self.fm_path = fm_path_for(path)              # final-minute monitor file (record only)
         self.live_max_contracts = live_max_contracts
         self.mode = 'paper'                        # never persisted as live: restart is always paper
         self.running = False
@@ -456,6 +458,7 @@ class Engine(Safeguards, SimQueue):
             self.markets[asset]=m; self.errors.pop(asset,None)
             self._clear_blocked(asset,not prev or prev.get('ticker')!=m['ticker'])
             self._run_sim_orders(asset,m,now)
+            self.final_minute(asset,m,now)          # record only (final_minute_log); never changes a decision
             for book in self._books():
                 p=book.get(asset)
                 if not (p and p['ticker']==m['ticker']):continue
