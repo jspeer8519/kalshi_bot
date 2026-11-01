@@ -27,3 +27,16 @@ Then Ctrl+C the app and run `./launch.sh` again.
 - Never edit `data/paper.sqlite3` or `data/trade_log.jsonl`.
 - A live halt (red banner) means: check the Kalshi account first, then clear it.
 - Back up `data/` regularly (e.g. `tar czf ~/kalshi-data-$(date +%F).tgz data/`).
+
+## Small-bankroll plan ($100)
+Strategy lab settings (one change at a time; each starts a new settings label):
+| Setting | Value | Effect |
+|---|---|---|
+| Position size by / Dollars per trade | Dollars / 10 | at most ~$10 per trade |
+| Max $ risk per trade | 10 | hard cap: worst-case loss of any one trade |
+| Max entries per 15-min session | 1 | one market per session |
+| Max $ at risk per 15-min session | 10 | combined session exposure |
+| Daily realized loss limit | 40 | entries stop for the UTC day after -$40 |
+| Cross-coin agreement minimum | 0 | experimental; enable only as its own forward test |
+Paper cash stays at $1,000 (fixed by design); these limits make exposure match a $100 bankroll.
+Check with `.venv/bin/python strategylab.py --mode shadow --since <date the plan started>`.

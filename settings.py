@@ -20,6 +20,9 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 direction_filter=False,        # skip entries the other markets' favorites disagree with
                 direction_majority=False,      # skip entries when most other markets (or half) favor the other side
                 max_session_risk=0,            # max $ at risk per 15-minute session across all coins, per ledger; 0 = off
+                max_session_entries=0,         # max entries per 15-minute session across all coins and sides, per ledger; 0 = off
+                max_trade_risk=0,              # skip a trade whose cost (its worst-case loss) exceeds this $; 0 = off
+                agreement_min=0,               # share (0-1) of other coins' favourites that must match the side at entry; 0 = off
                 bb_filter=False, bb_period=20, bb_k=2.0, bb_pctb=0.0,   # Bollinger (1-min) filter: skip entries against a band break
                 reversal_exit=False, reversal_watch=False,  # exit (or only record) when the coin crosses back through its target
                 reversal_pct=0.02, reversal_seconds=5, reversal_min_bid=0.30,
@@ -94,6 +97,9 @@ def validate(c):
     if not 0 <= c['reversal_seconds'] <= 60 or int(c['reversal_seconds']) != c['reversal_seconds']: raise ValueError('Reversal confirmation must be 0–60 whole seconds')
     if not .01 <= c['reversal_min_bid'] <= .99: raise ValueError('Reversal minimum bid must be $0.01–$0.99')
     if not 0 <= c['max_session_risk'] <= 10000: raise ValueError('Max $ at risk per session must be 0 (off) to $10,000')
+    if not 0 <= c['max_session_entries'] <= 50 or int(c['max_session_entries']) != c['max_session_entries']: raise ValueError('Max entries per session must be a whole number from 0 (off) to 50')
+    if not 0 <= c['max_trade_risk'] <= 10000: raise ValueError('Max $ risk per trade must be 0 (off) to $10,000')
+    if not 0 <= c['agreement_min'] <= 1: raise ValueError('Cross-coin agreement must be 0 (off) to 1')
     return c
 
 

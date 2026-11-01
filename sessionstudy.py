@@ -99,8 +99,9 @@ def measure(cs, close, side):
                 volume_0_10=sum(c[3] for c in early))
 
 
-def favourite(cs, close):
-    early = [c for c in cs if c[0] <= close - AT]
+def favourite(cs, close, at=None):
+    """Favoured side from the last complete minute ending at or before ``at`` (default: 10 minutes left)."""
+    early = [c for c in cs if c[0] <= (close - AT if at is None else at)]
     if not early:
         return None
     x = mid(early[-1]) - .5
@@ -113,7 +114,7 @@ def study(trades, cache, offline, log=print):
         if t['reasons'] != ['settlement']:
             continue
         sessions[t['ticker'].split('-')[1]].append(t)
-    rows = []; n = 0
+    rows = []; n = 0; skipped_early = []
     for code, ts in sorted(sessions.items(), key=lambda kv: min(t['opened'] for t in kv[1])):
         close = ts[0]['raw'][0].get('close') or r.market_close(ts[0]['ticker'])
         suffix = ts[0]['ticker'].split('-')[2]
@@ -128,14 +129,22 @@ def study(trades, cache, offline, log=print):
         losers = sum(1 for t in ts if t['pnl'] < 0)
         for t in ts:
             coin = t.get('asset') or t['ticker'][2:].split('15M')[0]
+            if t['opened'] < close - AT:
+                skipped_early.append(t)              # entered before 10 min left: those measurements would be future data
+                continue
             ms = measure(books.get(coin) or [], close, t['side'])
             if ms is None:
                 continue
             others = [f for c, f in fav.items() if c != coin and f]
             ms['coins_agree'] = sum(f == t['side'] for f in others) / len(others) if others else None
+            # Agreement at the entry moment: other coins' favourites from complete minutes ending at or before entry.
+            at_entry = [favourite(cs, close, at=t['opened']) for c, cs in books.items() if c != coin]
+            at_entry = [f for f in at_entry if f]
+            ms['coins_agree_entry'] = sum(f == t['side'] for f in at_entry) / len(at_entry) if at_entry else None
             before = [side_price(c, t['side']) for c in books[coin] if c[0] <= t['opened'] - 60]
             ms['peak_before'] = max(before) if before else None
             rows.append(dict(t=t, code=code, losers=losers, won=t['pnl'] > 0, **ms))
+    study.skipped_early = len(skipped_early)
     return rows, len(sessions)
 
 

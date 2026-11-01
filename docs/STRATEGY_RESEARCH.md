@@ -36,3 +36,12 @@ intervals; the edge counts as established only when the interval clears the pric
 ## Rejected
 Stop losses (S1), entries below 80c or above 92c, windows longer than 6 minutes, the fair-value model (S4), per-coin
 sizing (coin rankings reverse day to day; only SOL was consistently bad).
+
+## Session study, 2026-11-01 (74 sessions, 269 settled SHADOW trades)
+- Only "other coins agree at 10 min left" separated losers consistently in both chronological halves
+  (losses 15% low third vs 7% high third). Favourite strength and "already favourite" leaned the same way but
+  were inconsistent between halves. Choppiness, flips, volume and drift showed nothing.
+- "Fell into range" from above 92c lost less (6% of 36) than the rest (12%): the fading-favourite idea is rejected.
+- Implemented as `agreement_min` (off, experimental), measured at the entry moment from observable quotes only.
+  `strategylab.py` compares it out of sample with the existing strategy, one market per session and a single
+  best coin, using session-clustered intervals. Not promoted until its own settings label beats the previous one.

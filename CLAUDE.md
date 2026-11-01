@@ -28,6 +28,6 @@ Local Flask dashboard (127.0.0.1:8765) and bot that trades Kalshi 15-minute cryp
 - JS syntax: `node --check static/app.js`
 - Audit (read-only): `.venv/bin/python auditcheck.py [--no-network] --out output/reports/audit-$(date +%F).md`
 - P&L (read-only): `.venv/bin/python pnlreport.py --mode shadow|paper|live --period all|24h|7d|mtd`
-- Research (read-only): `sessionreport.py --since YYYY-MM-DD`, `sessionstudy.py --since YYYY-MM-DD` (early signs at 10 min left from Kalshi public 1-min history, cached), `gridreport.py`, `model_eval.py --mode shadow` (edge with confidence intervals, calibration, walk-forward model), `reversalreport.py`, `finalminutereport.py`
+- Research (read-only): `strategylab.py --since YYYY-MM-DD` (reconciliation, net P&L by coin/day/session, break-even bands, calibrated coin ranking, out-of-sample policy comparison, settings versions; session-clustered intervals), `sessionreport.py --since YYYY-MM-DD`, `sessionstudy.py --since YYYY-MM-DD` (early signs at 10 min left from Kalshi public 1-min history, cached), `gridreport.py`, `model_eval.py --mode shadow` (edge with confidence intervals, calibration, walk-forward model), `reversalreport.py`, `finalminutereport.py`
 - Docs: `docs/` (audit, architecture, defect and risk registers, baseline, strategy research, readiness). Update `DEFECT_REGISTER.md` when fixing a defect.
 - Start the app (user's terminal): `./launch.sh`

@@ -128,6 +128,15 @@ def decide_entry(asset, m, x):
                         blocked=f'No edge: best {best*100:+.1f}¢ vs {c["edge_margin"]*100:.1f}¢ margin', inputs=inputs)
     side = max(eligible, key=lambda s: m[s+'_ask'])
     price = m[side+'_ask']; count = order_count(c, price)
+    if c['max_session_entries'] > 0:
+        # One market per session by default for small bankrolls: crypto coins move together, so several
+        # positions in one session are one correlated bet, not diversification.
+        done = x.side_count(m['close'], 'yes') + x.side_count(m['close'], 'no')
+        inputs['session_entries'] = done
+        if done >= c['max_session_entries']:
+            return Skip('session_entries', f'{x.label} {asset} entry skipped: {done} entr{"y" if done == 1 else "ies"} already this session '
+                        f'(cap {int(c["max_session_entries"])}).', key=('session_entries', t),
+                        blocked=f'Session entry cap: {done} of {int(c["max_session_entries"])} used', inputs=inputs)
     if c['max_same_side'] > 0:
         done = x.side_count(m['close'], side)
         inputs['same_side_entries'] = done
@@ -157,6 +166,19 @@ def decide_entry(asset, m, x):
         if oppose >= agree:
             return Skip('majority_against', f'{x.label} {asset} entry skipped: {side.upper()} has {agree} other market(s) agreeing and {oppose} favoring the other side.',
                         key=('majority', t, side), blocked=f'Majority filter: {agree} agree, {oppose} against {side.upper()}', inputs=inputs)
+    if c['agreement_min'] > 0:
+        # Experimental (not promoted): share of the other selected markets' favourites, from snapshots fetched at or
+        # before now and no older than FRESH, that match the side. Skips when below the threshold or with no data.
+        votes = direction_votes(asset, m, x)
+        share = (sum(v == side for v in votes.values()) / len(votes)) if votes else None
+        inputs['agreement'] = dict(votes=votes, share=share)
+        if share is None:
+            return Skip('agreement_no_data', f'{x.label} {asset} entry skipped: no fresh quotes from other markets for the agreement filter.',
+                        key=('agreement', t), blocked='Agreement filter: no other market data', inputs=inputs)
+        if share < c['agreement_min'] - 1e-9:
+            return Skip('agreement_low', f'{x.label} {asset} entry skipped: {share:.0%} of other markets favour {side.upper()} '
+                        f'(minimum {c["agreement_min"]:.0%}).', key=('agreement', t, side),
+                        blocked=f'Agreement {share:.0%} < {c["agreement_min"]:.0%} for {side.upper()}', inputs=inputs)
     if c['bb_filter']:
         # Bollinger Bands on 1-minute closes of the settlement index (Coinbase if the index is down), data at
         # or before now only. A YES entry bets the price stays up; skip it while the price is breaking down
@@ -173,6 +195,10 @@ def decide_entry(asset, m, x):
                         f'moving against {side.upper()}.', key=('bb_against', t, side),
                         blocked=f'Bollinger: %B {bb["pctb"]:.2f}, {band} band break against {side.upper()}', inputs=inputs)
     need = round(price*count + fee(price, count), 6)
+    if c['max_trade_risk'] > 0 and need > c['max_trade_risk'] + 1e-9:
+        inputs['trade_risk'] = need
+        return Skip('trade_risk', f'{x.label} {asset} entry skipped: this trade could lose ${need:.2f}, above the ${c["max_trade_risk"]:g} per-trade limit.',
+                    key=('trade_risk', t), blocked=f'Trade risk ${need:.2f} > ${c["max_trade_risk"]:g}', inputs=inputs)
     if c['max_session_risk'] > 0 and x.session_risk is not None:
         used = x.session_risk(m['close'])
         inputs['session_risk'] = used
