@@ -90,3 +90,12 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FeedbackTests(unittest.TestCase):
+    def test_reports_progress_and_missing_database(self):
+        with tempfile.TemporaryDirectory() as d:
+            out = subprocess.run([sys.executable, str(ROOT / 'model_eval.py'), '--db', str(db_with(synthetic(n=20), d))], capture_output=True, text=True, timeout=60)
+            self.assertIn('Loaded 20 closed shadow trades', out.stderr)
+            missing = subprocess.run([sys.executable, str(ROOT / 'model_eval.py'), '--db', str(Path(d) / 'nope.db')], capture_output=True, text=True, timeout=60)
+            self.assertNotEqual(missing.returncode, 0); self.assertIn('Database not found', missing.stderr)

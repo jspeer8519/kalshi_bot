@@ -236,7 +236,12 @@ def main(argv=None):
     ap.add_argument('--out')
     a = ap.parse_args(argv)
     since = datetime.strptime(a.since, '%Y-%m-%d').replace(tzinfo=timezone.utc).timestamp() if a.since else 0
-    text = report(load(a.db, a.mode, since), a.mode, f'Trades opened since {a.since}' if a.since else 'All recorded trades')
+    if not os.path.exists(a.db):
+        sys.exit(f'Database not found: {a.db} (run this from the bot folder, e.g. cd ~/kalshi)')
+    trades = load(a.db, a.mode, since)
+    print(f'Loaded {len(trades)} closed {a.mode} trades from {a.db}' + (f' since {a.since}' if a.since else '') +
+          ('; fitting the walk-forward model, this can take about a minute...' if len(trades) >= 250 else '...'), file=sys.stderr, flush=True)
+    text = report(trades, a.mode, f'Trades opened since {a.since}' if a.since else 'All recorded trades')
     if a.out:
         os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
         with open(a.out, 'w') as f:
