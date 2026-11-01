@@ -17,12 +17,14 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 max_same_side=1,               # max entries on one side (YES/NO) per 15-minute session; 0 = no cap
                 direction_filter=False,        # skip entries the other markets' favorites disagree with
                 bb_filter=False, bb_period=20, bb_k=2.0, bb_pctb=0.0,   # Bollinger (1-min) filter: skip entries against a band break
+                reversal_exit=False, reversal_watch=False,  # exit (or only record) when the coin crosses back through its target
+                reversal_pct=0.02, reversal_seconds=5, reversal_min_bid=0.30,
                 fair_value=False, edge_margin=.02, fv_exit_margin=0, vol_lookback_s=900,
                 settlement_tracking=False,     # record how early-exited markets actually settled
                 kill_switch=False, kill_switch_pct=.20,
                 audit_full=False,              # also log every decision with its inputs
                 fill_comparison=False)         # simulate paper and shadow fills next to every real decision
-FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','fair_value','settlement_tracking',
+FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','reversal_exit','reversal_watch','fair_value','settlement_tracking',
          'kill_switch','audit_full','fill_comparison')
 NON_NUMERIC = ('assets', 'size_mode') + FLAGS
 
@@ -83,4 +85,7 @@ def validate(c):
     if not 5 <= c['bb_period'] <= 20 or int(c['bb_period']) != c['bb_period']: raise ValueError('Bollinger period must be a whole number of minutes from 5 to 20')
     if not 1 <= c['bb_k'] <= 4: raise ValueError('Bollinger width must be 1–4 standard deviations')
     if not 0 <= c['bb_pctb'] <= .5: raise ValueError('Bollinger %B threshold must be 0–0.5')
+    if not 0 <= c['reversal_pct'] <= 1: raise ValueError('Reversal margin must be 0–1% past the target')
+    if not 0 <= c['reversal_seconds'] <= 60 or int(c['reversal_seconds']) != c['reversal_seconds']: raise ValueError('Reversal confirmation must be 0–60 whole seconds')
+    if not .01 <= c['reversal_min_bid'] <= .99: raise ValueError('Reversal minimum bid must be $0.01–$0.99')
     return c

@@ -205,6 +205,18 @@ def decide_exit(asset, p, m, x, stop_since, label='PAPER', stop_key=None):
             reason = 'stop loss'          # a stop takes any available bid
         elif target_px is not None and bid >= target_px:
             reason, floor = 'take profit', target_px   # a take-profit never sells below its target
+        if reason is None and (c['reversal_exit'] or c['reversal_watch']):
+            # Reversal: the coin's index crossed back through the target against this position and stayed there.
+            rv = indicators.reversal(x.spot(asset), m.get('strike'), p['side'], now, c['reversal_pct'], int(c['reversal_seconds']))
+            if rv:
+                inputs['reversal'] = rv
+                if c['reversal_exit'] and bid >= c['reversal_min_bid'] - 1e-9:
+                    reason, floor = 'reversal exit', c['reversal_min_bid']    # never sells below the minimum bid
+                else:
+                    why = 'recording only' if not c['reversal_exit'] else f'bid {bid*100:.1f}¢ below the {c["reversal_min_bid"]*100:.0f}¢ minimum; holding'
+                    return Skip('reversal_signal', f'{label} {asset} reversal signal: price {rv["price"]:g} is past the target {rv["strike"]:g} against '
+                                f'{p["side"].upper()} (bid {bid*100:.1f}¢; {why}).', key=('reversal', p['ticker']),
+                                blocked=f'Reversal against {p["side"].upper()} · bid {bid*100:.1f}¢', inputs=inputs)
     if reason is None:
         return None
     n, avg, worst = walk_bids(levels, p['size'], floor)

@@ -124,3 +124,24 @@ def summarize(candles, keep=60):
     pctb = percent_b(closes[-1], bb_up[-1], bb_lo[-1]) if closes and bb_up[-1] is not None else None
     return dict(ema9=fast[tail], ema21=slow[tail], rsi14=strength[tail], atr14=rng[-1] if rng else None,
                 bb_mid=bb_mid[tail], bb_up=bb_up[tail], bb_lo=bb_lo[tail], bb_pctb=pctb)
+
+
+def reversal(ticks, strike, side, now, pct=0.02, seconds=5):
+    """Has the price crossed the market target AGAINST ``side`` and stayed there? YES needs the final
+    average at or above ``strike``, so a reversal against YES is the price at least ``pct`` percent BELOW
+    it; against NO, at least ``pct`` percent ABOVE it. Every tick in the last ``seconds`` (at or before
+    ``now``) must be past that line, the window must be covered, and the latest tick must be fresh.
+    Returns dict(price, strike, line, held) or None."""
+    if not strike or strike <= 0 or side not in ('yes', 'no'):
+        return None
+    pts = [(t, p) for t, p in ticks if t <= now and p > 0]
+    if not pts or now - pts[-1][0] > MAX_TICK_AGE:
+        return None
+    line = strike * (1 - pct / 100) if side == 'yes' else strike * (1 + pct / 100)
+    past = (lambda p: p < line) if side == 'yes' else (lambda p: p > line)
+    window = [(t, p) for t, p in pts if t >= now - seconds] or pts[-1:]
+    if seconds > 0 and window[0][0] > now - seconds + 1.5:      # not enough history to confirm
+        return None
+    if not all(past(p) for _, p in window):
+        return None
+    return dict(price=pts[-1][1], strike=strike, line=round(line, 8), held=seconds)

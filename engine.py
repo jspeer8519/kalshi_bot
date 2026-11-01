@@ -436,7 +436,12 @@ class Engine(Safeguards, SimQueue):
         elif isinstance(d, strategy.Skip):
             slot = self.slot(asset, mode)
             if d.blocked: self.blocked[slot] = d.blocked
-            if self._issue(slot, d.message, key=d.key): self._audit('decision_skip', asset, m, d, mode=mode)
+            if self._issue(slot, d.message, key=d.key):
+                self._audit('decision_skip', asset, m, d, mode=mode)
+                if d.reason == 'reversal_signal' and p:     # always recorded: reversalreport.py compares it with the settlement
+                    rv = d.inputs.get('reversal') or {}
+                    self.log.write('reversal_signal', mode=mode, asset=asset, ticker=p['ticker'], side=p['side'], entry=p['entry'], size=p['size'],
+                                   bid=d.inputs.get('bid'), price=rv.get('price'), strike=rv.get('strike'), seconds_left=d.inputs.get('seconds_left'))
 
     # ---- main loop ------------------------------------------------------------------
     def tick(self,m,now=None):
