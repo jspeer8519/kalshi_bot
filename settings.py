@@ -1,4 +1,6 @@
 """Strategy settings: defaults, validation, fee and sizing rules shared by every mode."""
+import hashlib
+import json
 import math
 from datetime import datetime
 from decimal import Decimal, ROUND_CEILING
@@ -16,6 +18,8 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 dual_shadow=False,             # also run the SHADOW ledger alongside PAPER or LIVE_SMALL
                 max_same_side=1,               # max entries on one side (YES/NO) per 15-minute session; 0 = no cap
                 direction_filter=False,        # skip entries the other markets' favorites disagree with
+                direction_majority=False,      # skip entries when most other markets (or half) favor the other side
+                max_session_risk=0,            # max $ at risk per 15-minute session across all coins, per ledger; 0 = off
                 bb_filter=False, bb_period=20, bb_k=2.0, bb_pctb=0.0,   # Bollinger (1-min) filter: skip entries against a band break
                 reversal_exit=False, reversal_watch=False,  # exit (or only record) when the coin crosses back through its target
                 reversal_pct=0.02, reversal_seconds=5, reversal_min_bid=0.30,
@@ -25,7 +29,7 @@ DEFAULTS = dict(initial_balance=1000, entry_min=.80, entry_max=.93, stop=.40,
                 kill_switch=False, kill_switch_pct=.20,
                 audit_full=False,              # also log every decision with its inputs
                 fill_comparison=False)         # simulate paper and shadow fills next to every real decision
-FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','bb_filter','reversal_exit','reversal_watch','final_minute_log','fair_value','settlement_tracking',
+FLAGS = ('paper_whole_contracts','paper_depth_fill','dual_shadow','direction_filter','direction_majority','bb_filter','reversal_exit','reversal_watch','final_minute_log','fair_value','settlement_tracking',
          'kill_switch','audit_full','fill_comparison')
 NON_NUMERIC = ('assets', 'size_mode') + FLAGS
 
@@ -89,4 +93,19 @@ def validate(c):
     if not 0 <= c['reversal_pct'] <= 1: raise ValueError('Reversal margin must be 0–1% past the target')
     if not 0 <= c['reversal_seconds'] <= 60 or int(c['reversal_seconds']) != c['reversal_seconds']: raise ValueError('Reversal confirmation must be 0–60 whole seconds')
     if not .01 <= c['reversal_min_bid'] <= .99: raise ValueError('Reversal minimum bid must be $0.01–$0.99')
+    if not 0 <= c['max_session_risk'] <= 10000: raise ValueError('Max $ at risk per session must be 0 (off) to $10,000')
     return c
+
+
+# Settings that change what the bot trades. Monitoring, logging and display switches are left out, so
+# turning them on or off does not start a new "settings version" in the reports.
+NOT_TRADING = ('initial_balance', 'audit_full', 'fill_comparison', 'final_minute_log', 'reversal_watch', 'settlement_tracking')
+
+
+def trading_settings(c):
+    return {k: c[k] for k in sorted(c) if k not in NOT_TRADING}
+
+
+def settings_tag(c):
+    """Short, stable label for the trading settings in force (same settings = same label)."""
+    return hashlib.sha1(json.dumps(trading_settings(c), sort_keys=True).encode()).hexdigest()[:8]

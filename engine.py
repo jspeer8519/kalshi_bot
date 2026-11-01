@@ -23,7 +23,7 @@ from executors import PENDING, SKIPPED, LiveSmallExecutor, SimExecutor
 from finalminute import FinalMinute, fm_path_for
 from fills import bid_levels, walk_bids  # noqa: F401  (re-exported)
 from settings import (ALL_ASSETS, DEFAULT_ASSETS, DEFAULTS, FLAGS, NON_NUMERIC, SERIES, asset_of, fee,  # noqa: F401
-                      max_order_count, order_count, timestamp, validate)
+                      max_order_count, order_count, settings_tag, timestamp, trading_settings, validate)
 
 MODES = ('paper', 'shadow', 'live')
 LABELS = {'paper': 'PAPER', 'shadow': 'SHADOW', 'live': 'LIVE_SMALL'}
@@ -342,6 +342,12 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         return n + sum(1 for o in self.s['sim_orders'] if not o.get('observe') and o['intent'] == 'entry'
                        and o['model'] == mode and o['close'] == close and o['side'] == side)
 
+    def _session_risk(self, mode, close):
+        """$ at risk in one 15-minute session for one ledger: open positions plus in-flight simulated entries."""
+        held = sum(q['cost'] for q in self.book(mode).values() if q.get('mode', 'paper') == mode and q.get('close') == close)
+        return held + sum(round(o['price']*o['count']+fee(o['price'], o['count']), 6) for o in self.s['sim_orders']
+                          if not o.get('observe') and o['intent'] == 'entry' and o['model'] == mode and o['close'] == close)
+
     def _limited(self, pnl):
         c = self.s['config']
         return (c['daily_loss']>0 and pnl<=-c['daily_loss']) or (c['daily_profit']>0 and pnl>=c['daily_profit'])
@@ -355,7 +361,7 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         return strategy.Ctx(c=self.s['config'], now=now, label=label(mode), running=self.running, positions=self.book(mode),
                             seen=set(self.seen_list(mode)), pnl=pnl, limited=self._limited(pnl), at_risk=at_risk,
                             side_count=lambda close, side: self._side_count(mode, close, side), markets=self.markets,
-                            spot=self.spot_fn, index=self.index_fn, killed=bool(self.s['kill'].get(mode)))
+                            spot=self.spot_fn, index=self.index_fn, session_risk=lambda close: self._session_risk(mode, close), killed=bool(self.s['kill'].get(mode)))
 
     def _execute_entry(self, asset, m, d, now, mode):
         ex = self.executors[mode]
@@ -382,6 +388,9 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         if ex.mode == 'paper': self.s['cash'] = round(self.s['cash']-cost, 6)
         p = dict(ticker=order['ticker'], side=order['side'], entry=fill['price'], size=fill['size'], entry_fee=fill['fee'], cost=cost,
                  opened=now, mark=mark, mode=ex.mode, close=order['close'], id=order['decision'], entry_decision=order['decision'])
+        tag = settings_tag(self.s['config']); p['cfg'] = tag      # which settings produced this trade (reports split by it)
+        versions = self.s.setdefault('config_versions', {})
+        if tag not in versions: versions[tag] = dict(first_seen=now, settings=trading_settings(self.s['config']))
         if fill.get('order_id'): p['order_id'] = fill['order_id']
         self.book(ex.mode)[asset] = p
         self.changed()

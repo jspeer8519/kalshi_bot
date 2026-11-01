@@ -60,6 +60,7 @@ class Ctx:
     spot: Callable               # asset -> [(unix second, price)]
     killed: bool
     index: Callable = None       # asset -> settlement-index prices only (None: use spot); for rules that compare with the target
+    session_risk: Callable = None  # session close -> $ already at risk in that session (this ledger)
 
 
 def fair_for(side, fv):
@@ -144,6 +145,18 @@ def decide_entry(asset, m, x):
         if against:
             return Skip('direction_disagree', f'{x.label} {asset} entry skipped: {side.upper()} disagrees with {", ".join(against)}.',
                         key=('direction', t, side), blocked='Direction filter: ' + ', '.join(against) + ' disagree', inputs=inputs)
+    if c['direction_majority']:
+        # Majority vote of the other selected markets in the same session (fresh snapshots only): skip when as
+        # many or more of them favor the other side. Ties are skipped too: in the recorded sessions both did worse.
+        votes = direction_votes(asset, m, x)
+        agree = sum(v == side for v in votes.values()); oppose = len(votes) - agree
+        inputs['majority_votes'] = votes
+        if not votes:
+            return Skip('majority_no_data', f'{x.label} {asset} entry skipped: no fresh quotes from the other markets for the majority filter.',
+                        key=('majority', t), blocked='Majority filter: no other market data', inputs=inputs)
+        if oppose >= agree:
+            return Skip('majority_against', f'{x.label} {asset} entry skipped: {side.upper()} has {agree} other market(s) agreeing and {oppose} favoring the other side.',
+                        key=('majority', t, side), blocked=f'Majority filter: {agree} agree, {oppose} against {side.upper()}', inputs=inputs)
     if c['bb_filter']:
         # Bollinger Bands on 1-minute closes of the settlement index (Coinbase if the index is down), data at
         # or before now only. A YES entry bets the price stays up; skip it while the price is breaking down
@@ -160,6 +173,13 @@ def decide_entry(asset, m, x):
                         f'moving against {side.upper()}.', key=('bb_against', t, side),
                         blocked=f'Bollinger: %B {bb["pctb"]:.2f}, {band} band break against {side.upper()}', inputs=inputs)
     need = round(price*count + fee(price, count), 6)
+    if c['max_session_risk'] > 0 and x.session_risk is not None:
+        used = x.session_risk(m['close'])
+        inputs['session_risk'] = used
+        if used + need > c['max_session_risk'] + 1e-9:
+            return Skip('session_risk', f'{x.label} {asset} entry skipped: ${used:.2f} already at risk this session; this trade (${need:.2f}) '
+                        f'would pass the ${c["max_session_risk"]:g} session cap.', key=('session_risk', t),
+                        blocked=f'Session cap: ${used:.2f} of ${c["max_session_risk"]:g} used', inputs=inputs)
     if c['daily_loss'] > 0 and x.pnl - x.at_risk - need < -c['daily_loss'] - 1e-9:
         # Each binary position can lose its whole cost; never let the worst case break the daily loss limit.
         room = c['daily_loss'] + x.pnl - x.at_risk

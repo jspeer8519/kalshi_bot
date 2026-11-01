@@ -33,6 +33,22 @@ for mode in ('paper', 'shadow'):
         print(f'  by {title}:')
         for k, (c, wn, pl) in sorted(d.items(), key=lambda x: -x[1][0]):
             print(f'     {k:18s} {c:4d} trades  win {wn / c:6.1%}  net {pl:+8.2f}')
+    by_ver = defaultdict(list); by_hour = defaultdict(list)
+    for t in T:
+        by_ver[t.get('cfg', 'untagged')].append(t); by_hour[datetime.fromtimestamp(t['opened'], timezone.utc).hour].append(t)
+    vers = s.get('config_versions', {})
+    print('  by settings version (each trade is labelled with the settings that opened it; untagged = before labels existed):')
+    prev = None
+    for v, g in sorted(by_ver.items(), key=lambda x: min(t['opened'] for t in x[1])):
+        c = sum(t['size'] for t in g) or 1
+        info = vers.get(v, {}).get('settings')
+        diff = '' if not info else (' · ' + ', '.join(f'{k}={info[k]}' for k in ('entry_min', 'entry_max', 'window', 'dollars', 'max_same_side', 'direction_majority', 'max_session_risk', 'bb_filter', 'reversal_exit') if k in info and (prev is None or prev.get(k) != info[k])))
+        print(f"     {v:9s} {len(g):4d} trades  win {sum(t['pnl'] > 0 for t in g) / len(g):6.1%}  net {sum(t['pnl'] for t in g):+8.2f}  per contract {sum(t['pnl'] for t in g) / c * 100:+6.2f}c{diff}")
+        prev = info or prev
+    print('  by hour of entry (UTC; 12:30-13:30 UTC = 8:30-9:30 ET, US data releases and stock market open):')
+    for h in sorted(by_hour):
+        g = by_hour[h]
+        print(f"     {h:02d}:00  {len(g):4d} trades  win {sum(t['pnl'] > 0 for t in g) / len(g):6.1%}  net {sum(t['pnl'] for t in g):+8.2f}")
     print('  last 8 multi-coin sessions:')
     for k in sorted(multi, key=lambda k: max(t['closed'] for t in multi[k]))[-8:]:
         v = multi[k]
