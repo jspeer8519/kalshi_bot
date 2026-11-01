@@ -9,6 +9,9 @@ Series are aligned with the input candles; values before the warm-up are None.
 """
 
 
+from itertools import pairwise
+
+
 def ema(closes, n):
     out = [None] * len(closes)
     if len(closes) < n:
@@ -149,7 +152,7 @@ def reversal(ticks, strike, side, now, pct=0.02, seconds=5):
     if seconds > 0:
         if not window or window[0][0] > now - seconds + REVERSAL_MAX_STEP:
             return None                                          # the start of the window is not covered
-        if any(b[0] - a[0] > REVERSAL_MAX_STEP for a, b in zip(window, window[1:])):
+        if any(b[0] - a[0] > REVERSAL_MAX_STEP for a, b in pairwise(window)):
             return None                                          # a gap: missing values cannot confirm anything
     if not all(past(p) for _, p in window):
         return None
