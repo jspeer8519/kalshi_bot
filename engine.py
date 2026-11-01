@@ -461,6 +461,7 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         then entries for each ledger taking entries. Every ledger uses the same decision functions."""
         with self.lock:
             now=time.time() if now is None else now   # decision time is taken once the lock is held
+            self.tick_wall=time.time()                 # wall clock at the start of this update (live quote-age check)
             c=self.s['config']
             asset=m.get('asset') or asset_of(m['ticker']) or c['assets'][0]
             prev=self.markets.get(asset)
@@ -468,8 +469,6 @@ class Engine(Safeguards, SimQueue, FinalMinute):
             self.markets[asset]=m; self.errors.pop(asset,None)
             self._clear_blocked(asset,not prev or prev.get('ticker')!=m['ticker'])
             self._run_sim_orders(asset,m,now)
-            try:self.final_minute(asset,m,now)      # record only (final_minute_log); never changes a decision
-            except Exception as e:self._issue(asset,f'Final-minute monitor error ({type(e).__name__}); recording skipped, trading unaffected.',key='fm_error')
             for book in self._books():
                 p=book.get(asset)
                 if not (p and p['ticker']==m['ticker']):continue
@@ -493,6 +492,8 @@ class Engine(Safeguards, SimQueue, FinalMinute):
             self._kill_check(now)
             for mode in self.entry_modes():
                 self._act(asset,m,strategy.decide_entry(asset,m,self._ctx(now,mode)),now,mode)
+            try:self.final_minute(asset,m,now)      # record only, AFTER this update's decisions; writes go to a background thread
+            except Exception as e:self._issue(asset,f'Final-minute monitor error ({type(e).__name__}); recording skipped, trading unaffected.',key='fm_error')
             self._apply_pending_config()
             self.s['seen']=self.s['seen'][-500:];self.s['shadow_seen']=self.s['shadow_seen'][-500:]
             self._save_if_due()

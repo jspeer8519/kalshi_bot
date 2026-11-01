@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from settings import fee  # noqa: E402
 
 ap = argparse.ArgumentParser(); ap.add_argument('--file', default='data/final_minute.jsonl'); a = ap.parse_args()
-snaps, result = defaultdict(list), {}
+snaps, result, incomplete = defaultdict(list), {}, set()
 if not os.path.exists(a.file):
     print(f'No monitor data yet ({a.file} does not exist).\n'
           'The file appears after the app is restarted with this version, "Final-minute monitor" is ticked and saved\n'
@@ -26,9 +26,12 @@ with open(a.file) as f:
         try: d = json.loads(line)
         except ValueError: continue
         if d.get('kind') == 'snap': snaps[d['ticker']].append(d)
-        elif d.get('kind') == 'outcome' and d.get('result'): result[d['ticker']] = d['result']
+        elif d.get('kind') == 'outcome':
+            if d.get('result'): result[d['ticker']] = d['result']
+            else: incomplete.add(d['ticker'])
 done = {tk: sorted(v, key=lambda d: d['t']) for tk, v in snaps.items() if tk in result}
-print(f'{len(snaps)} markets recorded, {len(done)} with a known outcome, {sum(len(v) for v in done.values())} snapshots.\n')
+print(f'{len(snaps)} markets recorded, {len(done)} with a complete outcome (all 60 settlement seconds), '
+      f'{len(incomplete)} excluded as incomplete, {sum(len(v) for v in done.values())} snapshots.\n')
 if not done: sys.exit(0)
 
 print('1. CALIBRATION (leading side by the model, every snapshot)')

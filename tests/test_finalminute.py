@@ -45,6 +45,7 @@ class ProbabilityTests(unittest.TestCase):
 
 class EngineTests(EngineCase):
     def rows(self):
+        self.e.fm_flush()
         p = Path(self.e.fm_path)
         return [json.loads(x) for x in p.read_text().splitlines()] if p.exists() else []
 

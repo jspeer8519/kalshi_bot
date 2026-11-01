@@ -126,22 +126,31 @@ def summarize(candles, keep=60):
                 bb_mid=bb_mid[tail], bb_up=bb_up[tail], bb_lo=bb_lo[tail], bb_pctb=pctb)
 
 
+REVERSAL_FRESH = 2.5   # seconds: the latest index value must be at least this recent
+REVERSAL_MAX_STEP = 1.5  # seconds: largest allowed gap between consecutive index values in the window
+
+
 def reversal(ticks, strike, side, now, pct=0.02, seconds=5):
     """Has the price crossed the market target AGAINST ``side`` and stayed there? YES needs the final
     average at or above ``strike``, so a reversal against YES is the price at least ``pct`` percent BELOW
-    it; against NO, at least ``pct`` percent ABOVE it. Every tick in the last ``seconds`` (at or before
-    ``now``) must be past that line, the window must be covered, and the latest tick must be fresh.
+    it; against NO, at least ``pct`` percent ABOVE it. Uses only values at or before ``now``. The
+    confirmation window [now - seconds, now] must be covered by consecutive 1-second index values
+    (no gap over REVERSAL_MAX_STEP, first value at the window start, latest no older than
+    REVERSAL_FRESH) and every one of them must be past the line. Missing data never confirms.
     Returns dict(price, strike, line, held) or None."""
     if not strike or strike <= 0 or side not in ('yes', 'no'):
         return None
-    pts = [(t, p) for t, p in ticks if t <= now and p > 0]
-    if not pts or now - pts[-1][0] > MAX_TICK_AGE:
+    pts = sorted((t, p) for t, p in ticks if t <= now and p > 0)
+    if not pts or now - pts[-1][0] > REVERSAL_FRESH:
         return None
     line = strike * (1 - pct / 100) if side == 'yes' else strike * (1 + pct / 100)
     past = (lambda p: p < line) if side == 'yes' else (lambda p: p > line)
-    window = [(t, p) for t, p in pts if t >= now - seconds] or pts[-1:]
-    if seconds > 0 and window[0][0] > now - seconds + 1.5:      # not enough history to confirm
-        return None
+    window = [(t, p) for t, p in pts if t >= now - seconds] if seconds > 0 else pts[-1:]
+    if seconds > 0:
+        if not window or window[0][0] > now - seconds + REVERSAL_MAX_STEP:
+            return None                                          # the start of the window is not covered
+        if any(b[0] - a[0] > REVERSAL_MAX_STEP for a, b in zip(window, window[1:])):
+            return None                                          # a gap: missing values cannot confirm anything
     if not all(past(p) for _, p in window):
         return None
     return dict(price=pts[-1][1], strike=strike, line=round(line, 8), held=seconds)

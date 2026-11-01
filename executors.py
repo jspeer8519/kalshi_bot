@@ -150,7 +150,9 @@ class LiveSmallExecutor:
     def _stale(self, eng, asset, m, now, started, intent):
         """Last check before sending: the account checks, saves and log writes since the decision can take
         seconds, so the quote must still be fresh (and the market open) at this exact moment."""
-        t = now + (time.time() - started)
+        # Count everything since the update began (eng.tick_wall), not only the time spent in this executor: work done
+        # earlier in the same update (other ledgers, monitoring) also ages the quote.
+        t = now + (time.time() - min(started, getattr(eng, 'tick_wall', started)))
         if t - m['fetched'] > self.MAX_QUOTE_AGE or t >= m['close']:
             eng._issue(asset, f'LIVE {asset} {intent} not sent: quote is {t - m["fetched"]:.0f} s old by send time; will re-decide on fresh data.')
             eng.log.write('order_not_sent', mode='live', intent=intent, asset=asset, ticker=m['ticker'], quote_age=round(t - m['fetched'], 3))
