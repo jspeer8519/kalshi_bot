@@ -224,7 +224,7 @@ def report(trades, mode, label):
                 g[k][0] += 1; g[k][1] += -t['pnl']
         rows = sorted(g.items(), key=lambda kv: -kv[1][1])[:6]
         L.append(f'**{title}:** ' + '; '.join(f'{k} {v[1] / total:.0%} of losses ({v[0]} of {v[2]} trades lost)' for k, v in rows if v[0]))
-    L += ['', 'Groups with fewer than ~30 trades are too small to act on.']
+    L += ['', 'Reading note (always shown): in the breakdowns above, a group with fewer than ~30 trades is too small to act on. This is not an error.']
     return '\n'.join(L)
 
 
