@@ -105,3 +105,22 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class IndexOnlyTests(EngineCase):
+    def make(self, **kw):
+        self.index = {}
+        return super().make(index_fn=lambda a: self.index.get(a, []), **kw)
+
+    def test_a_coinbase_fallback_price_never_triggers_a_reversal(self):
+        self.cfg(stop=0, take_profit=1, reversal_exit=True)
+        self.spot['BTC'] = ticks(101.0); self.index['BTC'] = ticks(101.0)
+        self.e.control('start'); self.e.tick(market('BTC', strike=STRIKE), NOW)
+        later = NOW + 5
+        self.spot['BTC'] = [(t, 101.0 if t < later - 10 else 99.8) for t in range(later - 120, later + 1)]   # Coinbase "crosses"
+        self.index['BTC'] = []                                                                                 # index feed down
+        self.e.tick(market('BTC', strike=STRIKE, yes_bid=.55, fetched=later), later)
+        self.assertIn('BTC', self.e.s['positions'])                       # holds: no index, no reversal signal
+        self.index['BTC'] = self.spot['BTC']                                # the index itself crosses
+        self.e.tick(market('BTC', strike=STRIKE, yes_bid=.55, fetched=later + .5), later + .5)
+        self.assertNotIn('BTC', self.e.s['positions'])

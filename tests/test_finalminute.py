@@ -93,3 +93,13 @@ class MissingFileTests(unittest.TestCase):
         out = subprocess.run([sys.executable, str(ROOT / 'finalminutereport.py'), '--file', '/nonexistent/fm.jsonl'], capture_output=True, text=True, timeout=60)
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn('No monitor data yet', out.stdout)
+
+
+class IsolationTests(EngineCase):
+    def test_a_monitor_error_never_stops_trading(self):
+        from unittest.mock import patch
+        self.cfg(final_minute_log=True)
+        with patch('finalminute.final_prob', side_effect=RuntimeError('boom')):
+            self.e.control('start'); self.e.tick(market('BTC', strike=100.0, fetched=CLOSE - 30), CLOSE - 30)
+        self.assertIn('BTC', self.e.s['positions'])
+        self.assertTrue(any('Final-minute monitor error' in m for m in self.messages()))

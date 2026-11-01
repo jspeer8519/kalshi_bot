@@ -36,7 +36,7 @@ def label(mode):
 
 
 class Engine(Safeguards, SimQueue, FinalMinute):
-    def __init__(self, path, executor=None, log_path=None, live_max_contracts=1, spot_fn=None):
+    def __init__(self, path, executor=None, log_path=None, live_max_contracts=1, spot_fn=None, index_fn=None):
         self.lock = threading.RLock()
         self.db = sqlite3.connect(path, check_same_thread=False)
         self.db.execute('CREATE TABLE IF NOT EXISTS state (id INTEGER PRIMARY KEY, body TEXT NOT NULL)')
@@ -47,6 +47,7 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         self.sims = {'paper': SimExecutor('paper'), 'shadow': SimExecutor('shadow')}
         self.executors = dict(self.sims, **({'live': LiveSmallExecutor(executor)} if executor is not None else {}))
         self.spot_fn = spot_fn or (lambda asset: [])
+        self.index_fn = index_fn or self.spot_fn  # settlement index only (no Coinbase fallback); tests pass spot_fn alone
         self.log = TradeLog(log_path)
         self.fm_path = fm_path_for(path)              # final-minute monitor file (record only)
         self.live_max_contracts = live_max_contracts
@@ -354,7 +355,7 @@ class Engine(Safeguards, SimQueue, FinalMinute):
         return strategy.Ctx(c=self.s['config'], now=now, label=label(mode), running=self.running, positions=self.book(mode),
                             seen=set(self.seen_list(mode)), pnl=pnl, limited=self._limited(pnl), at_risk=at_risk,
                             side_count=lambda close, side: self._side_count(mode, close, side), markets=self.markets,
-                            spot=self.spot_fn, killed=bool(self.s['kill'].get(mode)))
+                            spot=self.spot_fn, index=self.index_fn, killed=bool(self.s['kill'].get(mode)))
 
     def _execute_entry(self, asset, m, d, now, mode):
         ex = self.executors[mode]
@@ -458,7 +459,8 @@ class Engine(Safeguards, SimQueue, FinalMinute):
             self.markets[asset]=m; self.errors.pop(asset,None)
             self._clear_blocked(asset,not prev or prev.get('ticker')!=m['ticker'])
             self._run_sim_orders(asset,m,now)
-            self.final_minute(asset,m,now)          # record only (final_minute_log); never changes a decision
+            try:self.final_minute(asset,m,now)      # record only (final_minute_log); never changes a decision
+            except Exception as e:self._issue(asset,f'Final-minute monitor error ({type(e).__name__}); recording skipped, trading unaffected.',key='fm_error')
             for book in self._books():
                 p=book.get(asset)
                 if not (p and p['ticker']==m['ticker']):continue

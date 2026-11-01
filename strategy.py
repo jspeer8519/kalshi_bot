@@ -59,6 +59,7 @@ class Ctx:
     markets: dict
     spot: Callable               # asset -> [(unix second, price)]
     killed: bool
+    index: Callable = None       # asset -> settlement-index prices only (None: use spot); for rules that compare with the target
 
 
 def fair_for(side, fv):
@@ -207,7 +208,8 @@ def decide_exit(asset, p, m, x, stop_since, label='PAPER', stop_key=None):
             reason, floor = 'take profit', target_px   # a take-profit never sells below its target
         if reason is None and (c['reversal_exit'] or c['reversal_watch']):
             # Reversal: the coin's index crossed back through the target against this position and stayed there.
-            rv = indicators.reversal(x.spot(asset), m.get('strike'), p['side'], now, c['reversal_pct'], int(c['reversal_seconds']))
+            rv = indicators.reversal((x.index or x.spot)(asset),   # index only: a Coinbase fallback could fake a crossing
+                                     m.get('strike'), p['side'], now, c['reversal_pct'], int(c['reversal_seconds']))
             if rv:
                 inputs['reversal'] = rv
                 if c['reversal_exit'] and bid >= c['reversal_min_bid'] - 1e-9:

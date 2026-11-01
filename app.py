@@ -104,7 +104,8 @@ def live_max_contracts():
 
 client=KalshiClient(load_credentials,base=API)
 engine=Engine(str(DATA/'paper.sqlite3'),executor=LiveExecutor(client),log_path=str(LOG_PATH),live_max_contracts=live_max_contracts(),
-            spot_fn=lambda asset:index_feed.series(asset) or tick_feed.series(asset))   # settlement index, else Coinbase (both defined below)
+            spot_fn=lambda asset:index_feed.series(asset) or tick_feed.series(asset),   # settlement index, else Coinbase (both defined below)
+            index_fn=lambda asset:index_feed.series(asset))   # settlement index only: rules that compare the price with the target
 
 
 # Spot price chart only (display). Kalshi settles these markets on CF Benchmarks' index,

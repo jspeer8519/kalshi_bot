@@ -50,7 +50,8 @@ def final_average(ticks, close):
 
 
 class FinalMinute:
-    """Mixed into Engine. ``self.fm_path`` is set by Engine.__init__."""
+    """Mixed into Engine. ``self.fm_path`` and ``self.index_fn`` (settlement index only, never the Coinbase
+    fallback, so outcomes and probabilities are computed on the values Kalshi settles on) are set by Engine.__init__."""
 
     def _fm_write(self, row):
         try:
@@ -66,7 +67,7 @@ class FinalMinute:
         for tk, info in list(pending.items()):                    # outcomes of markets that have closed
             if now < info['close'] + OUTCOME_DELAY:
                 continue
-            avg, n = final_average(self.spot_fn(info['asset']), info['close'])
+            avg, n = final_average(self.index_fn(info['asset']), info['close'])
             if n >= MIN_OUTCOME_VALUES or now > info['close'] + OUTCOME_GIVE_UP:
                 ok = n >= MIN_OUTCOME_VALUES
                 self._fm_write(dict(kind='outcome', ticker=tk, asset=info['asset'], close=info['close'], strike=info['strike'],
@@ -75,7 +76,7 @@ class FinalMinute:
         close, strike = m.get('close'), m.get('strike')
         if m.get('status') != 'active' or close is None or strike is None or not close - WINDOW <= now < close:
             return
-        fp = final_prob(self.spot_fn(asset), strike, close, now)
+        fp = final_prob(self.index_fn(asset), strike, close, now)
         pending.setdefault(m['ticker'], dict(asset=asset, close=close, strike=strike))
         self._fm_write(dict(kind='snap', t=round(now, 3), asset=asset, ticker=m['ticker'], close=close, strike=strike,
                             sec_left=round(close - now, 3), fetched=m.get('fetched'), model=fp,
