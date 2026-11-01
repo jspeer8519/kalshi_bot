@@ -16,6 +16,11 @@ from settings import fee  # noqa: E402
 
 ap = argparse.ArgumentParser(); ap.add_argument('--file', default='data/final_minute.jsonl'); a = ap.parse_args()
 snaps, result = defaultdict(list), {}
+if not os.path.exists(a.file):
+    print(f'No monitor data yet ({a.file} does not exist).\n'
+          'The file appears after the app is restarted with this version, "Final-minute monitor" is ticked and saved\n'
+          'in Strategy lab, and a market reaches its last 60 seconds. Check: curl -s http://127.0.0.1:8765/api/state | grep -o \'"final_minute_log": [a-z]*\'')
+    sys.exit(0)
 with open(a.file) as f:
     for line in f:
         try: d = json.loads(line)

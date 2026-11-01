@@ -86,3 +86,10 @@ class ReportTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class MissingFileTests(unittest.TestCase):
+    def test_missing_file_explains_instead_of_crashing(self):
+        out = subprocess.run([sys.executable, str(ROOT / 'finalminutereport.py'), '--file', '/nonexistent/fm.jsonl'], capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('No monitor data yet', out.stdout)
